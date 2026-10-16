@@ -4,6 +4,14 @@ A portable Python + HTML viewer for inspecting model-generated word timestamps a
 audio, a waveform, a spectrogram, and per-speaker diarization segments. No NeMo, GPU,
 model checkpoint, web server, or JavaScript build tool is required.
 
+## Preview
+
+![LSM 2mix timestamp viewer showing audio controls, waveform, spectrogram, speaker-colored words, diarization segments and a selected segment's start/end times](docs/images/lsm-2mix-viewer.png)
+
+LSM 2mix example: clicking a word or diarization segment seeks the audio and displays
+its start/end times to two decimal places. This is a static screenshot; build the player
+below for synchronized playback and interactive inspection.
+
 ## What it shows
 
 - Audio controls with a synchronized timeline cursor and simultaneous speaker-word highlighting.
