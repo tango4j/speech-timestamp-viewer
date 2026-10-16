@@ -1,0 +1,26 @@
+name: Tests
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: python -m pip install -e '.[test]'
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - run: python examples/make_demo.py --output demo-data
+      - run: speech-timestamp-viewer --predictions demo-data/predictions.jsonl --output output/demo
+      - run: python tests/browser_smoke.py output/demo/index.html
+      - run: python tests/browser_navigation.py output/demo/index.html
