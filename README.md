@@ -6,9 +6,9 @@ model checkpoint, web server, or JavaScript build tool is required.
 
 ## Preview
 
-![LSM 2mix timestamp viewer showing audio controls, waveform, spectrogram, speaker-colored words, diarization segments and a selected segment's start/end times](docs/images/lsm-2mix-viewer.png)
+![LSM 2mix viewer at 2x zoom showing audio controls, a draggable overview window, waveform, spectrogram, speaker words, diarization and selected start/end times](docs/images/lsm-2mix-viewer.png)
 
-LSM 2mix example: clicking a word or diarization segment seeks the audio and displays
+LSM 2mix example: clicking a word or diarization segment plays that interval and displays
 its start/end times to two decimal places. This is a static screenshot; build the player
 below for synchronized playback and interactive inspection.
 
@@ -16,8 +16,10 @@ below for synchronized playback and interactive inspection.
 
 - Audio controls with a synchronized timeline cursor and simultaneous speaker-word highlighting.
 - Waveform, spectrogram (0–8 kHz, −70…0 dB relative), per-speaker words and VAD lanes.
-- Speaker-colored words; click a word, word interval, or diarization interval to seek.
+- Speaker-colored words; click a word, word interval, or diarization interval to play from its start to its end, then stop automatically.
 - A persistent **Start XX.YY s / End XX.YY s** readout. Playback does not overwrite the selection.
+- Horizontal zoom keeps waveform, spectrogram, words, diarization and cursor on one shared time scale.
+- A full-recording overview with a draggable visible-window indicator that shrinks as you zoom in.
 - Full recordings or excerpts; excerpt selections also display source-recording times.
 - An expandable original model hypothesis. Reference text is **never** substituted for predictions.
 - Self-contained browser output and size-bounded fragments for Codex inline visualization.
@@ -26,6 +28,16 @@ The viewer displays supplied timestamps unchanged, except for clipping to a requ
 It does **not** run ASR, forced alignment, interpolation, language normalization, or accuracy evaluation.
 Two-decimal display formatting does not imply 10 ms acoustic accuracy. `<ev:...>` and `<sty:...>`
 tokens are preserved as text. Diarization segments are supplied by you; the viewer does not threshold logits.
+
+## Playback and navigation
+
+- Click a word in the transcript or a word/VAD bar to play only that segment. Clicking another segment cancels the previous stop point.
+- Native audio controls play continuously after a segment finishes. Seeking in the main plot cancels the segment limit; pausing/resuming within a selected segment retains its endpoint.
+- **Zoom in + / Zoom out −** change the visible time span by a factor of two. The current playhead anchors zoom when visible; otherwise the viewport center is used. The minimum view span is 250 ms (or the full duration for shorter recordings).
+- Drag the overview's highlighted window to pan, or click elsewhere in the overview to center it there. This moves the view without changing playback position.
+- Focus the overview window and use **Left/Right** to pan, **Page Up/Down** for a full-window jump, or **Home/End** to reach either edge.
+- All four tracks use the same clipped time transform; off-screen bars cannot intercept clicks. Zoom magnifies the stored waveform/spectrogram preview; it does not recompute higher-resolution acoustic features.
+- Playback endpoints use browser media timing, not sample-accurate audio editing. The displayed start/end values remain the supplied timestamps.
 
 ## Install
 
@@ -150,12 +162,14 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 python -m pip install -e '.[test]'
 python -m playwright install chromium
 python tests/browser_smoke.py output/demo/index.html
+python tests/browser_navigation.py output/demo/index.html
 # Or use installed Chrome:
 python tests/browser_smoke.py output/demo/index.html --browser /path/to/chrome
 ```
 
-The browser check verifies actual playback, word/VAD clicks, two-decimal readouts, keyboard
-interaction, waveform/spectrogram rendering and small-screen layout.
+The browser checks verify actual bounded playback, cancellation/resume, word/VAD clicks,
+two-decimal readouts, synchronized zoom, overview drag/keyboard navigation, waveform/spectrogram
+rendering and small-screen layout. `browser_navigation.py` uses the generated four-second synthetic demo.
 
 ## Maintenance and privacy
 

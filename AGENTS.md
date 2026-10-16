@@ -18,7 +18,9 @@ Read README.md first. This repository is a viewer, not an ASR/alignment implemen
 
 - Display hypothesis words, never substitute ground-truth text. Preserve event/style tokens.
 - Keep all simultaneous active speakers highlighted. A single cursor follows the audio clock.
-- Clicking a word or diarization segment seeks and shows start/end with exactly two decimals.
+- Clicking a word or diarization segment plays only its start/end interval and shows exactly two decimals.
+- All tracks share one zoom/pan transform; the overview window width represents the visible duration.
+- Segment switches and sample switches cancel stale playback timers. Native continuous playback remains usable.
 - Keep selected details persistent during playback. Source times must be explicit for excerpts.
 - Do not distort chart dimensions. Support 320px layouts and keyboard-operated segment buttons.
 - Inline fragments stay below 1 MB; split at sample boundaries and reject oversized single samples.
