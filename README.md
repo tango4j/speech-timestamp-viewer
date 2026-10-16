@@ -8,9 +8,10 @@ model checkpoint, web server, or JavaScript build tool is required.
 
 ![LSM 2mix viewer at 2x zoom showing audio controls, a draggable overview window, waveform, spectrogram, speaker words, diarization and selected start/end times](docs/images/lsm-2mix-viewer.png)
 
-LSM 2mix example: clicking a word or diarization segment plays that interval and displays
-its start/end times to two decimal places. This is a static screenshot; build the player
-below for synchronized playback and interactive inspection.
+**LSM 2mix at 2× zoom.** The overview window is panned to the right and covers half of
+the recording; waveform, spectrogram, words and diarization share the same visible time range.
+Click a word or diarization segment to play only that interval and inspect its start/end times.
+This is a static screenshot; follow the setup below for interactive playback.
 
 ## What it shows
 
