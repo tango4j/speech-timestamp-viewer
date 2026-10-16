@@ -1,11 +1,20 @@
 # Codex integration
 
+## Start a viewer in your conversation
 
 Copy or clone this repository on the machine where Codex can read your audio and predictions.
-Ask Codex:
+Open it as a project or provide its absolute path. Python 3.10+ and FFmpeg with libmp3lame
+are required; Codex can follow the [installation instructions](../README.md#use-in-a-regular-browser).
 
-> Read this repository's AGENTS.md and README.md. Build the timestamp player from these
-> prediction/reference files, select ten 2mix samples, and show it inline in this conversation.
+Copy the [Codex prompt in the README](../README.md#use-in-codex), replacing the prediction path.
+Also provide a reference JSONL path if it supplies audio locations. For a first test without
+private data, ask Codex to generate `examples/make_demo.py`'s synthetic demo and show it inline.
+
+Codex needs access to both the manifests and audio on its execution machine. A path on your
+laptop is not automatically available to a remote execution environment. Use path remapping
+when necessary; see [usage](usage.md).
+
+## Generated files
 
 The builder emits:
 
