@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speech-timestamp-viewer"
+version = "0.1.0"
+description = "Portable audio, waveform, spectrogram, word timestamp and diarization viewer"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24,<3", "scipy>=1.10,<2", "Pillow>=10,<13"]
+
+[project.optional-dependencies]
+test = ["playwright>=1.50,<2"]
+
+[project.scripts]
+speech-timestamp-viewer = "speech_timestamp_viewer.cli:main"
+
+[tool.setuptools.package-data]
+speech_timestamp_viewer = ["templates/*.html"]
+
+[tool.setuptools.packages.find]
+include = ["speech_timestamp_viewer*"]
