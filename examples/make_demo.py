@@ -11,6 +11,7 @@ import numpy as np
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=Path('demo-data'))
+    parser.add_argument('--special-tokens', action='store_true', help='Include illustrative speaker/style/event tags')
     args = parser.parse_args()
     if (args.output / 'tones.wav').exists() or (args.output / 'predictions.jsonl').exists():
         parser.error('Demo files already exist; choose a new directory')
@@ -47,6 +48,17 @@ def main():
             dict(speaker=s, start=a, end=b) for s, a, b in [(0, 0.4, 1.3), (1, 1.0, 2.2), (0, 2.5, 3.4)]
         ],
     )
+    if args.special_tokens:
+        record['hypothesis'] = '<spk:0><sty:stt:flat> hello <ev:laughter><sty:end:flat>'
+        record['words'] = [
+            dict(word=w, speaker=0, start=a, end=b)
+            for w, a, b in [
+                ('<sty:stt:flat>', 0, 0.4),
+                ('hello', 0.4, 0.8),
+                ('<ev:laughter>', 0.8, 1.3),
+                ('<sty:end:flat>', 1.3, 1.5),
+            ]
+        ]
     (args.output / 'predictions.jsonl').write_text(json.dumps(record) + '\n')
     print(args.output / 'predictions.jsonl')
 

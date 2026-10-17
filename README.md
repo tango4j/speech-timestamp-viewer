@@ -111,6 +111,32 @@ Open `output/my-viewer/index.html`. For separate audio manifests, add
 
 ## Documentation
 
+### Special-token display
+
+Defaults are configurable through two lists:
+
+```python
+special_token_ignored = ["<spk:*>", "<sty:stt:*>", "<sty:end:*>"]
+special_token_added = ["<ev:*>"]
+```
+
+Ignored tags remain visible as **light speaker-colored text without a box**. They have no
+timestamp bars, click-to-play action or playback highlighting. Event tags remain interactive
+like words when the predictions contain timestamps for them. The viewer never invents alignment.
+Provide the original `hypothesis`, `pred_text` or `generation` to retain tags omitted from timestamp output.
+
+Override the case-sensitive glob lists (quote patterns to prevent shell expansion):
+
+```bash
+speech-timestamp-viewer --predictions /path/to/predictions.jsonl --output output/custom \
+  --special-token-ignored '<spk:*>' '<sty:*>' --special-token-added '<ev:*>'
+```
+
+An added pattern overrides an ignored pattern. Flags replace the defaults; a flag with no values
+sets an empty list. Underscore aliases (`--special_token_ignored`, `--special_token_added`) also work.
+The original hypothesis remains available verbatim in its expandable section. Text without a
+matching timestamp—including text outside a selected excerpt—is passive, not assigned guessed times.
+
 Supports generic JSONL and NeMo/SALM timestamp output. References can supply audio paths,
 but **ground-truth text never replaces the hypothesis**. Choose a new output directory each run.
 

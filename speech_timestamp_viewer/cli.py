@@ -3,6 +3,7 @@
 import argparse
 import base64
 from collections import defaultdict
+from fnmatch import fnmatchcase
 import hashlib
 import html
 from importlib.resources import files
@@ -11,6 +12,7 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -18,6 +20,81 @@ import sys
 import numpy as np
 from PIL import Image
 from scipy.signal import stft
+
+SPECIAL_TOKEN_IGNORED = ('<spk:*>', '<sty:stt:*>', '<sty:end:*>')
+SPECIAL_TOKEN_ADDED = ('<ev:*>',)
+
+
+def token_ignored(token: str, ignored: list | tuple, added: list | tuple) -> bool:
+    """Match case-sensitive globs; added patterns override ignored patterns."""
+    return any(fnmatchcase(token, p) for p in ignored) and not any(fnmatchcase(token, p) for p in added)
+
+
+def transcript_rows(
+    hypothesis: str,
+    words: list,
+    special_token_ignored: list | tuple = SPECIAL_TOKEN_IGNORED,
+    special_token_added: list | tuple = SPECIAL_TOKEN_ADDED,
+) -> list:
+    """Keep hypothesis tags/text visible, attaching only existing per-speaker word intervals.
+
+    Match words in order within each speaker stream. Unmatched text stays passive; no
+    timing is inferred. Character-level timestamps can split an unspaced text segment.
+    """
+    if not hypothesis:
+        return [
+            (
+                dict(word=w['word'], speaker=w['speaker'], passive=True)
+                if token_ignored(w['word'], special_token_ignored, special_token_added)
+                else dict(w)
+            )
+            for w in words
+        ]
+    segments = list(re.finditer(r'<[^<>]*>|[^<>]+', hypothesis))
+    tagged = bool(re.search(r'<spk:\d+>', hypothesis, re.I))
+    speaker = None if tagged else '0'
+    regions = []
+    for segment in segments:
+        tag = re.fullmatch(r'<spk:(\d+)>', segment.group(), re.I)
+        if tag:
+            speaker = tag[1]
+        regions.append((segment.start(), segment.end(), speaker))
+    positions, cursors = {}, {}
+    for word in words:
+        if token_ignored(word['word'], special_token_ignored, special_token_added):
+            continue
+        speaker = str(word['speaker'])
+        stream = speaker if tagged else 'all'
+        for start, end, owner in regions:
+            if (tagged and str(owner) != speaker) or end <= cursors.get(stream, 0):
+                continue
+            if hypothesis[start:end].startswith('<') and hypothesis[start:end] != word['word']:
+                continue
+            pattern = re.escape(word['word'])
+            if re.match(r'[A-Za-z0-9]', word['word']):
+                pattern = r'(?<!\w)' + pattern
+            if re.search(r'[A-Za-z0-9]$', word['word']):
+                pattern += r'(?!\w)'
+            match = re.search(pattern, hypothesis[max(start, cursors.get(stream, 0)) : end], re.I)
+            if match:
+                begin = max(start, cursors.get(stream, 0)) + match.start()
+                finish = begin + len(match[0])
+                positions[begin] = (finish, {**word, 'word': hypothesis[begin:finish]})
+                cursors[stream] = finish
+                break
+    rows = []
+    for start, end, speaker in regions:
+        position = start
+        while position < end:
+            if position in positions:
+                position, word = positions[position]
+                rows.append(word)
+                continue
+            following = min((p for p in positions if position < p < end), default=end)
+            for token in re.findall(r'<[^<>]*>|\S+', hypothesis[position:following]):
+                rows.append(dict(word=token, speaker=str(speaker), passive=True))
+            position = following
+    return rows
 
 
 def read_jsonl(path: Path) -> dict:
@@ -34,7 +111,11 @@ def read_jsonl(path: Path) -> dict:
     return records
 
 
-def normalized_timestamps(record: dict) -> tuple[list, list, dict]:
+def normalized_timestamps(
+    record: dict,
+    special_token_ignored: list | tuple = SPECIAL_TOKEN_IGNORED,
+    special_token_added: list | tuple = SPECIAL_TOKEN_ADDED,
+) -> tuple[list, list, dict]:
     """Accept NeMo speaker-grouped timestamps or a generic flat word list."""
     ts = record.get('timestamps') or record
     grouped = ts.get('speaker_word_timestamps')
@@ -45,6 +126,8 @@ def normalized_timestamps(record: dict) -> tuple[list, list, dict]:
     words = []
     for tag, items in grouped.items():
         for item in items:
+            if token_ignored(str(item['word']), special_token_ignored, special_token_added):
+                continue
             words.append(
                 dict(
                     word=str(item['word']),
@@ -207,6 +290,20 @@ def main() -> None:
     parser.add_argument('--title', default='Speech timestamps')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--max-inline-bytes', type=int, default=950000)
+    parser.add_argument(
+        '--special-token-ignored',
+        '--special_token_ignored',
+        nargs='*',
+        default=list(SPECIAL_TOKEN_IGNORED),
+        help='Replace ignored glob patterns; no values disables filtering',
+    )
+    parser.add_argument(
+        '--special-token-added',
+        '--special_token_added',
+        nargs='*',
+        default=list(SPECIAL_TOKEN_ADDED),
+        help='Retained glob patterns override ignored patterns; requires existing timestamps',
+    )
     args = parser.parse_args()
     if not shutil.which('ffmpeg'):
         parser.error('ffmpeg is required; install it with apt, brew, or conda')
@@ -240,12 +337,20 @@ def main() -> None:
             else args.references.parent if args.references else args.predictions.parent
         )
         path = audio_path(record, ref, origin, args.audio_root, args.audio_prefix)
-        words, diar, mapping = normalized_timestamps(record)
+        all_words, diar, mapping = normalized_timestamps(record, [], [])
+        words = [
+            w for w in all_words if not token_ignored(w['word'], args.special_token_ignored, args.special_token_added)
+        ]
         data = media(path, args.start, args.duration)
         # Never substitute reference text for a missing hypothesis.
         hypothesis = next(
             (record[k] for k in ('hypothesis', 'pred_text', 'generation') if isinstance(record.get(k), str)), ''
         )
+        clipped_words = clip_rows(words, args.start, data['duration'])
+        display_rows = []
+        for row in transcript_rows(hypothesis, all_words, args.special_token_ignored, args.special_token_added):
+            clipped = clip_rows([row], args.start, data['duration']) if 'start' in row else []
+            display_rows.extend(clipped or [dict(word=row['word'], speaker=row['speaker'], passive=True)])
         examples.append(
             dict(
                 data,
@@ -253,7 +358,10 @@ def main() -> None:
                 number=number,
                 group=args.title,
                 offset=args.start,
-                words=sorted(clip_rows(words, args.start, data['duration']), key=lambda w: (w['start'], w['speaker'])),
+                words=sorted(clipped_words, key=lambda w: (w['start'], w['speaker'])),
+                transcript=display_rows,
+                special_token_ignored=args.special_token_ignored,
+                special_token_added=args.special_token_added,
                 diar=clip_rows(diar, args.start, data['duration']),
                 mapping=mapping,
                 hypothesis=hypothesis,

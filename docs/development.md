@@ -17,6 +17,14 @@ rendering and small-screen layout. `browser_navigation.py` uses the generated fo
 
 ## Maintenance and privacy
 
+Special-token regression demo and browser check (labels are illustrative, not recognized speech):
+
+```bash
+python examples/make_demo.py --special-tokens --output demo-data/tokens
+speech-timestamp-viewer --predictions demo-data/tokens/predictions.jsonl --output output/tokens
+python tests/browser_special_tokens.py output/tokens/index.html
+```
+
 `speech_timestamp_viewer/cli.py` handles input/media generation; `templates/viewer.html` owns
 the reusable player; `templates/standalone.html` supplies browser styling. Keep HTML markup in
 these literal templates, not in Python strings. Changes to interactions should extend the browser test.

@@ -29,6 +29,7 @@
 #__ROOT_ID__ .ctc-word{color:color-mix(in srgb,var(--speaker-color) 70%,var(--foreground)) !important;background:transparent !important;font-weight:500}
 #__ROOT_ID__ .ctc-word[aria-pressed="true"],#__ROOT_ID__ .ctc-word:hover,#__ROOT_ID__ .ctc-live-word{background:color-mix(in srgb,var(--speaker-color) 22%,transparent) !important}
 #__ROOT_ID__ .ctc-live-word{padding:3px 6px;border-radius:4px}
+#__ROOT_ID__ .ctc-passive{color:color-mix(in srgb,var(--speaker-color) 55%,var(--background,#fff));background:none;border:0;padding:0;box-shadow:none}
 #__ROOT_ID__ #ctc-nav{height:48px;position:relative;margin:4px 0 12px;touch-action:none;background:color-mix(in srgb,var(--foreground) 5%,transparent)}
 #__ROOT_ID__ #ctc-overview{display:block;width:100%;height:48px;pointer-events:none}
 #__ROOT_ID__ #ctc-nav-window{box-sizing:border-box;position:absolute;top:0;height:100%;min-width:0;padding:0;border:2px solid var(--foreground);border-radius:3px;background:color-mix(in srgb,var(--viz-series-1) 15%,transparent);touch-action:none}
@@ -164,7 +165,15 @@ function load(index){if(!Number.isInteger(index)||!examples[index])return;clearS
  caption.style.overflowWrap='anywhere';caption.textContent=`${sample.id} · ${sample.offset.toFixed(2)}–${(sample.offset+sample.duration).toFixed(2)} s in source · spectrogram −70…0 dB relative`;
  root.querySelector('#ctc-hypothesis').textContent=sample.hypothesis;transcript.replaceChildren();buttons=[];
  detail.textContent='Click a word or diarization segment to play that interval.';
- for(const w of sample.words){const b=document.createElement('button');b.type='button';b.className='btn btn-ghost ctc-word';b.style.setProperty('--speaker-color',color(sample.mapping[String(w.speaker)]??w.speaker));b.textContent=w.word;b.setAttribute('aria-label',`Speaker ${w.speaker}: ${w.word}`);b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>showSegment(w,'Word',w.speaker));transcript.append(b);buttons.push([b,w]);}draw();
+ for(const w of sample.transcript??sample.words){
+  const timed=Number.isFinite(w.start)&&Number.isFinite(w.end);
+  const b=document.createElement(timed?'button':'span');
+  b.className=timed?'btn btn-ghost ctc-word':'ctc-passive';
+  b.style.setProperty('--speaker-color',color(sample.mapping[String(w.speaker)]??w.speaker));b.textContent=w.word;
+  b.setAttribute('aria-label',`Speaker ${w.speaker}: ${w.word}`);
+  if(timed){b.type='button';b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>showSegment(w,'Word',w.speaker));buttons.push([b,w]);}
+  transcript.append(b,document.createTextNode(' '));
+ }draw();
 }
 examples.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${s.group} · example ${s.number} · ${s.duration.toFixed(2)} s`;select.append(o);});
 select.addEventListener('change',()=>{load(Number(select.value));persist();});
